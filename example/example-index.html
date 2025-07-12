@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP 智慧解答专家系统</title>
+    <script>
+        /*
+         *  - Primary / 互动主色改为品牌蓝 #007DFF
+         *  - Success / 成功色改为绿色 #00C487
+         *  - Warning / 警告色改为黄色 #FFC300
+         *  - Danger / 错误色改为红色 #FF3131
+         */
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"HarmonyOS Sans SC"', '"HarmonyOS Sans"', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                    },
+                    colors: {
+                        blue: {
+                            50:  '#E8F3FF',
+                            100: '#DCEEFF',
+                            200: '#B3D8FF',
+                            300: '#8AC2FF',
+                            400: '#62ABFF',
+                            500: '#007DFF',
+                            600: '#0061CC',
+                            700: '#004699',
+                            800: '#002C66',
+                            900: '#001333',
+                        },
+                        green: {
+                            50:  '#E6F9F3',
+                            100: '#CCF3E7',
+                            200: '#99E7CF',
+                            300: '#66DBB7',
+                            400: '#33CF9F',
+                            500: '#00C487',
+                            600: '#00A06B',
+                            700: '#007C50',
+                            800: '#005836',
+                            900: '#00341B',
+                        },
+                        yellow: {
+                            50:  '#FFFBE6',
+                            100: '#FFF6CC',
+                            200: '#FFE999',
+                            300: '#FFDC66',
+                            400: '#FFD033',
+                            500: '#FFC300',
+                            600: '#CC9C00',
+                            700: '#997400',
+                            800: '#664D00',
+                            900: '#332600',
+                        },
+                        red: {
+                            50:  '#FFECEC',
+                            100: '#FFD9D9',
+                            200: '#FFAFAF',
+                            300: '#FF8585',
+                            400: '#FF5B5B',
+                            500: '#FF3131',
+                            600: '#CC2828',
+                            700: '#991F1F',
+                            800: '#661515',
+                            900: '#330B0B',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- HarmonyOS 图标库 -->
+    <script src="icons.js"></script>
+    <style>
+        /* 提供 CSS 变量，便于在行内样式或 SVG 中直接复用品牌色 */
+        :root {
+            --brand-blue:   #007DFF;
+            --brand-green:  #00C487;
+            --brand-yellow: #FFC300;
+            --brand-red:    #FF3C35;
+        }
+
+        /* 仅修改 stroke 颜色，不干扰本身为 fill="none" 的 polyline，避免出现整块填充 */
+        svg [stroke="#3b82f6"] { stroke: var(--brand-blue) !important; }
+        svg [fill="#3b82f6"]  { fill:   var(--brand-blue)  !important; }
+
+        svg [stroke="#10b981"]{ stroke: var(--brand-green) !important; }
+        svg [fill="#10b981"] { fill:   var(--brand-green)  !important; }
+
+        svg [stroke="#f59e0b"]{ stroke: var(--brand-yellow) !important; }
+        svg [fill="#f59e0b"] { fill:   var(--brand-yellow)  !important; }
+
+        svg [stroke="#ef4444"]{ stroke: var(--brand-red) !important; }
+        svg [fill="#ef4444"] { fill:   var(--brand-red)  !important; }
+
+        body {
+            background-color: #f0f2f5;
+        }
+
+        /* HarmonyOS Sans 字体引入 - 根据华为设计指南 */
+        @font-face {
+            font-family: 'HarmonyOS Sans SC';
+            src: url('HarmonyOS Sans/HarmonyOS_SansSC/HarmonyOS_SansSC_Regular.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'HarmonyOS Sans SC';
+            src: url('HarmonyOS Sans/HarmonyOS_SansSC/HarmonyOS_SansSC_Bold.ttf') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        /* fallback Latin 字形 */
+        @font-face {
+            font-family: 'HarmonyOS Sans';
+            src: url('HarmonyOS Sans/HarmonyOS_Sans/HarmonyOS_Sans_Regular.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'HarmonyOS Sans';
+            src: url('HarmonyOS Sans/HarmonyOS_Sans/HarmonyOS_Sans_Bold.ttf') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans overflow-hidden">
+    <div id="app" class="flex h-screen overflow-hidden" x-data="{
+        // 侧边栏状态
+        isSidebarOpen: true,
+        history: [
+            { 
+                id: 1, title: '核心交换机A-B链路丢包', time: '5分钟前', status: '诊断中', vendor: 'huawei',
+                logSnippet: '[HUAWEI] Interface GigabitEthernet0/0/1, current state is DOWN',
+                attachments: [ { type: 'image', name: 'topology.jpg' } ],
+                knowledgeHits: [ { text: '链路层协议状态为DOWN，建议检查物理连接...', score: '92%' } ],
+                graph: {
+                    activeNodeId: 'n1',
+                    nodes: [
+                        { id: 'n1', label: '起始问题', type: 'start', position: 'top-1/2 left-4 -translate-y-1/2', details: '接口G0/0/1频繁Flapping，导致业务中断。' },
+                        { id: 'n2', label: 'Agent分析', type: 'processing', position: 'top-1/4 left-1/3 -translate-y-1/2', details: '分析日志发现接口存在大量CRC错包，物理层存在问题。' },
+                        { id: 'n3', label: 'Agent追问', type: 'input-required', position: 'top-1/2 left-1/3 -translate-y-1/2', details: '为进一步确认，请提供该接口连接的对端设备型号和接口信息。', needsInput: true },
+                        { id: 'n4', label: '解决方案', type: 'solution', position: 'top-1/2 left-2/3 -translate-y-1/2', details: '综合分析，判定为光模块故障。建议更换接口G0/0/1的光模块。', needsFeedback: true }
+                    ],
+                    edges: [
+                        { from: 'n1', to: 'n2' }, { from: 'n2', to: 'n3' }, { from: 'n3', to: 'n4' }
+                    ]
+                }
+            },
+            { 
+                id: 3, title: '数据库连接池异常', time: '昨天 14:30', status: '未解决', vendor: 'cisco',
+                logSnippet: 'ERROR: Connection refused. Check IP address and port.',
+                attachments: [ { type: 'log', name: 'error.log' } ],
+                knowledgeHits: [ { text: '数据库连接被拒绝通常与防火墙策略或服务未运行有关。', score: '85%' } ]
+            },
+            { 
+                id: 2, title: 'Web服务器无法访问外网', time: '2小时前', status: '已解决', vendor: 'juniper',
+                logSnippet: 'request timeout for icmp_seq 1',
+                attachments: [],
+                knowledgeHits: [ { text: 'ICMP超时表明目标主机不可达或存在路由问题。', score: '88%' } ]
+            },
+            { 
+                id: 4, title: '办公区Wi-Fi速率过慢', time: '2023-05-15', status: '已归档', vendor: 'huawei',
+                logSnippet: 'WLAN client negotiation rate is low.',
+                attachments: [],
+                knowledgeHits: [],
+                graph: null
+            }
+        ],
+        isModalOpen: false,
+        isFilterModalOpen: false, // 添加过滤模态框状态
+        activeFilters: {
+            device: 'huawei',
+            problem: 'all',
+            attachment: 'all'
+        },
+        newDiagnosis: { title: '', description: '' },
+        mainView: 'dashboard', // 'dashboard' or 'diagPath'
+        selectedHistoryId: null,
+        activeTab: 'details',
+        vendorTab: 'huawei',
+        contextMenu: { visible: false, x: 0, y: 0, item: null },
+        // 添加权重模式状态
+        weightMode: 'keyword', // 'keyword', 'balanced', 'semantic'
+        // 折线图视图模式：year, month, week
+        chartView: 'month',
+        chartYear: '2024', // 当前选择的年份
+        chartMonth: '5', // 当前选择的月份
+        chartWeek: '23', // 当前选择的周
+        chartData: {
+            year: {
+                // 按月显示年度数据
+                '2023': {
+                    labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+                    values: [50, 55, 60, 65, 60, 70, 75, 73, 80, 82, 85, 88]
+                },
+                '2024': {
+                    labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+                    values: [65, 70, 68, 75, 80, 85, 90, 92, 88, 90, 92, 95]
+                }
+            },
+            month: {
+                // 按日显示月度数据
+                '5': {
+                    labels: ['1日', '5日', '10日', '15日', '20日', '25日', '30日'],
+                    values: [70, 75, 78, 72, 85, 88, 90]
+                },
+                '6': {
+                    labels: ['1日', '5日', '10日', '15日', '20日', '25日', '30日'],
+                    values: [75, 80, 82, 79, 85, 90, 92]
+                }
+            },
+            week: {
+                // 按天显示周数据（周日到周六）
+                '22': {
+                    labels: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
+                    values: [75, 65, 70, 72, 78, 85, 88]
+                },
+                '23': {
+                    labels: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
+                    values: [78, 70, 75, 80, 82, 88, 90]
+                }
+            }
+        },
+        // 登录状态及表单
+        isLoggedIn: localStorage.getItem('isLoggedIn') === 'true',
+        loginForm: { username: '', password: '' },
+        loginError: '',
+        // 主题模式：light | dark | system
+        darkMode: localStorage.getItem('theme') || 'system',
+
+        // 根据 darkMode 和系统偏好应用主题
+        applyTheme() {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDark = this.darkMode === 'dark' || (this.darkMode === 'system' && prefersDark);
+            document.documentElement.classList.toggle('dark', isDark);
+        },
+
+        // Alpine 初始化钩子
+        init() {
+            this.applyTheme();
+
+            // 监听自身状态变化
+            this.$watch('darkMode', (val) => {
+                localStorage.setItem('theme', val);
+                this.applyTheme();
+            });
+
+            // 监听系统主题变化，仅在跟随系统时生效
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (this.darkMode === 'system') {
+                    this.applyTheme();
+                }
+            });
+        },
+
+        get selectedHistory() {
+            return this.history.find(h => h.id === this.selectedHistoryId);
+        },
+
+        get activeNode() {
+            if (!this.selectedHistory || !this.selectedHistory.graph) return null;
+            return this.selectedHistory.graph.nodes.find(n => n.id === this.selectedHistory.graph.activeNodeId);
+        },
+
+        startNewDiagnosis() {
+            if (!this.newDiagnosis.title.trim()) {
+                alert('请输入问题标题');
+                return;
+            }
+            const newItem = {
+                id: Date.now(),
+                title: this.newDiagnosis.title,
+                time: '刚刚',
+                status: '诊断中',
+                vendor: 'huawei', // 假设默认为华为
+                logSnippet: '新诊断任务，等待分析...',
+                attachments: [ { type: 'file', name: 'uploaded-file.zip' } ], // 模拟上传
+                knowledgeHits: [],
+                graph: null // 新诊断没有图
+            };
+            this.history.unshift(newItem);
+            this.newDiagnosis.title = '';
+            this.newDiagnosis.description = '';
+            this.isModalOpen = false;
+            
+            this.selectHistory(newItem); // 使用selectHistory来统一处理后续逻辑
+        },
+        selectHistory(historyItem) {
+            this.selectedHistoryId = historyItem.id;
+            this.mainView = 'diagPath';
+            this.activeTab = 'details'; // 切换到详情Tab
+            if (this.selectedHistory) {
+                this.vendorTab = this.selectedHistory.vendor; // 同步厂商Tab
+            }
+        },
+        selectNode(nodeId) {
+            if (!this.selectedHistory || !this.selectedHistory.graph) return;
+            this.selectedHistory.graph.activeNodeId = nodeId;
+            this.activeTab = 'details';
+        },
+        showDashboard() {
+            this.mainView = 'dashboard';
+            this.selectedHistoryId = null;
+        },
+        showSettings() {
+            this.mainView = 'settings';
+            this.selectedHistoryId = null;
+        },
+        showAccountSettings() {
+            this.mainView = 'accountSettings';
+            this.selectedHistoryId = null;
+        },
+        // 登录与登出方法
+        login() {
+            if (!this.loginForm.username || !this.loginForm.password) {
+                this.loginError = '请输入用户名和密码';
+                return;
+            }
+            if (this.loginForm.username === 'admin' && this.loginForm.password === '123') {
+                this.isLoggedIn = true;
+                localStorage.setItem('isLoggedIn', 'true');
+                this.loginError = '';
+            } else {
+                this.loginError = '用户名或密码错误';
+            }
+        },
+        logout() {
+            this.isLoggedIn = false;
+            localStorage.removeItem('isLoggedIn');
+            this.loginForm.username = '';
+            this.loginForm.password = '';
+        },
+        showContextMenu(event, item) {
+            event.preventDefault();
+            this.contextMenu = { visible: true, x: event.clientX, y: event.clientY, item };
+        },
+        deleteHistory(item) {
+            this.history = this.history.filter(h => h.id !== item.id);
+            if (this.selectedHistoryId === item.id) {
+                this.selectedHistoryId = null;
+                this.mainView = 'dashboard';
+            }
+            this.contextMenu.visible = false;
+        },
+        toggleTag(item, tag) {
+            if (!item.tags) item.tags = [];
+            const idx = item.tags.indexOf(tag);
+            if (idx === -1) {
+                item.tags.push(tag);
+            } else {
+                item.tags.splice(idx, 1);
+            }
+            this.contextMenu.visible = false;
+        },
+        renameHistory(item) {
+            const newTitle = prompt('请输入新的标题', item.title);
+            if (newTitle !== null && newTitle.trim()) {
+                item.title = newTitle.trim();
+            }
+            this.contextMenu.visible = false;
+        }
+    }">
+        <!-- 登录界面 -->
+        <div x-show="!isLoggedIn" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-100">
+            <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
+                <h2 class="text-2xl font-semibold mb-6 text-center">账号登录</h2>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                    <input type="text" x-model="loginForm.username" class="w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                    <input type="password" x-model="loginForm.password" class="w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <template x-if="loginError">
+                    <p class="text-red-500 text-sm mb-2" x-text="loginError"></p>
+                </template>
+                <button @click="login()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md transition-colors">登录</button>
+            </div>
+        </div>
+        <!-- 左侧：导航与诊断历史面板 -->
+        <aside :class="{'w-80': isSidebarOpen, 'w-20': !isSidebarOpen}" class="bg-white p-4 shadow-md flex flex-col transition-all duration-300 ease-in-out">
+            <!-- 顶部 -->
+            <div class="flex-shrink-0">
+                <!-- 用户信息与角色 -->
+                <div @click="showAccountSettings()" :class="{'justify-center': !isSidebarOpen}" class="flex items-center mb-4 p-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
+                    <div class="h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
+                        <img src="avatar.png" alt="用户头像" class="h-full w-full object-cover">
+                    </div>
+                    <div x-show="isSidebarOpen" class="ml-3 flex-1 overflow-hidden">
+                        <p class="text-sm font-semibold text-gray-800 truncate">李工</p>
+                        <p class="text-xs text-gray-500 truncate">工号: 114514 / 运维部</p>
+                    </div>
+                </div>
+                <!-- 发起新诊断 -->
+                <button @click="isModalOpen = true" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center transition-colors duration-200 mb-2">
+                    <div class="h-5 w-5 flex-shrink-0 inline-flex items-center justify-center" :class="{'mr-2': isSidebarOpen}" x-html="HarmonyIcons.add"></div>
+                    <span x-show="isSidebarOpen" class="whitespace-nowrap flex items-center">新诊断</span>
+                </button>
+                
+                <!-- 过滤按钮 -->
+                <button @click="isFilterModalOpen = true" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg flex items-center justify-center transition-colors duration-200 mb-4">
+                    <div class="h-5 w-5 flex-shrink-0 inline-flex items-center justify-center" :class="{'mr-2': isSidebarOpen}" x-html="HarmonyIcons.filter"></div>
+                    <span x-show="isSidebarOpen" class="whitespace-nowrap flex items-center">过滤</span>
+                </button>
+                
+                <!-- 搜索框 -->
+                <div x-show="isSidebarOpen" class="relative">
+                    <input type="text" placeholder="搜索诊断历史..." class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" x-html="HarmonyIcons.search"></div>
+                </div>
+                <!-- 仅在折叠时显示的搜索图标 -->
+                <div x-show="!isSidebarOpen" class="flex justify-center">
+                    <button @click="isSidebarOpen = true" class="p-2 rounded-lg hover:bg-gray-100">
+                        <div class="w-5 h-5 text-gray-600" x-html="HarmonyIcons.search"></div>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 中部: 诊断历史列表 -->
+            <div x-show="isSidebarOpen" class="flex-grow my-4 overflow-hidden flex flex-col">
+                <!-- 诊断历史列表 -->
+                <div class="space-y-2">
+                    <template x-for="(item, index) in history.slice(0, 5)" :key="item.id">
+                        <div @click="selectHistory(item)" @contextmenu.prevent="showContextMenu($event, item)" 
+                            :class="{ 'bg-blue-50': selectedHistoryId === item.id }"
+                            class="p-2.5 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors duration-150">
+                            <div class="flex justify-between items-center mb-1">
+                                <p class="text-sm font-medium text-gray-800 truncate" x-text="item.title"></p>
+                                <span :class="{
+                                    'bg-blue-100 text-blue-800': item.status === '诊断中',
+                                    'bg-green-100 text-green-800': item.status === '已解决',
+                                    'bg-red-100 text-red-800': item.status === '未解决',
+                                    'bg-gray-100 text-gray-800': item.status === '已归档',
+                                }" class="text-xs font-medium px-2 py-0.5 rounded-full" x-text="item.status"></span>
+                            </div>
+                            <p class="text-xs text-gray-500" x-text="item.time"></p>
+                        </div>
+                    </template>
+                </div>
+                
+                <!-- 查看更多按钮 -->
+                <div x-show="history.length > 5" class="mt-2 text-center">
+                    <button class="w-full py-2 px-4 bg-white border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                        查看更多 (共<span x-text="history.length"></span>个案例)
+                    </button>
+                </div>
+                
+                <!-- 无诊断案例时显示 -->
+                <div x-show="history.length === 0" class="flex flex-col items-center justify-center py-6 text-gray-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <p class="text-sm">暂无诊断案例</p>
+                </div>
+            </div>
+
+            <!-- 折叠后的历史记录视图 -->
+            <div x-show="!isSidebarOpen" class="flex-grow my-4 overflow-y-auto flex flex-col items-center space-y-3 pb-16">
+                <template x-for="(item, index) in history" :key="item.id">
+                    <div @click="selectHistory(item); isSidebarOpen = true" @contextmenu.prevent="showContextMenu($event, item)" 
+                        class="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-lg cursor-pointer transition-all duration-150"
+                        :class="{
+                            'bg-blue-100 text-blue-800': item.status === '诊断中',
+                            'bg-green-100 text-green-800': item.status === '已解决',
+                            'bg-red-100 text-red-800': item.status === '未解决',
+                            'bg-gray-200 text-gray-800': item.status === '已归档',
+                            'ring-2 ring-blue-500 shadow-lg': selectedHistoryId === item.id
+                        }">
+                        <template x-if="item.status === '诊断中'">
+                            <div class="h-6 w-6" x-html="HarmonyIcons.status.processing"></div>
+                        </template>
+                        <template x-if="item.status === '已解决'">
+                            <div class="h-6 w-6" x-html="HarmonyIcons.status.success"></div>
+                        </template>
+                        <template x-if="item.status === '未解决'">
+                            <div class="h-6 w-6" x-html="HarmonyIcons.status.failed"></div>
+                        </template>
+                        <template x-if="item.status === '已归档'">
+                            <div class="h-6 w-6" x-html="HarmonyIcons.status.archived"></div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+
+            <!-- 底部导航 -->
+            <div class="mt-auto border-t pt-4">
+                <a href="#" @click.prevent="showDashboard()" :class="{'bg-gray-100': mainView === 'dashboard', 'justify-center': !isSidebarOpen}" class="flex items-center p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-150 mb-2">
+                    <div :class="{'mr-3': isSidebarOpen}" class="h-6 w-6 flex-shrink-0" x-html="HarmonyIcons.dashboard"></div>
+                    <span x-show="isSidebarOpen" class="whitespace-nowrap">数据看板</span>
+                </a>
+                <div class="flex items-center" :class="isSidebarOpen ? 'justify-between' : 'justify-center'">
+                    <button @click="isSidebarOpen = !isSidebarOpen" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+                        <div class="h-6 w-6" x-html="HarmonyIcons.arrowLeft"></div>
+                    </button>
+                    <a href="#" @click.prevent="showSettings()" x-show="isSidebarOpen" :class="{'bg-gray-100': mainView === 'settings'}" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-150">
+                        <div class="h-6 w-6" x-html="HarmonyIcons.settings"></div>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 中心：主画布区域 -->
+        <main class="flex-1 p-6 flex flex-col overflow-y-auto">
+            <!-- 数据看板 -->
+            <div x-show="mainView === 'dashboard'" x-transition class="flex-1 grid grid-cols-4 grid-rows-2 gap-4">
+                <!-- 故障分类饼图 -->
+                <div class="col-span-1 row-span-1 bg-white rounded-lg shadow-sm p-3 flex flex-col">
+                    <h3 class="font-semibold text-gray-800 mb-2">故障分类</h3>
+                    <div class="flex items-center justify-center space-x-4 flex-grow">
+                        <div class="relative w-24 h-24 flex-shrink-0">
+                            <!-- 更新饼图渐变配色 -->
+                            <div class="w-full h-full rounded-full" style="background-image: conic-gradient(from 0deg, var(--brand-blue) 0% 40%, var(--brand-green) 40% 65%, var(--brand-yellow) 65% 85%, var(--brand-red) 85% 100%);"></div>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="w-12 h-12 bg-white rounded-full"></div>
+                            </div>
+                        </div>
+                        <!-- Legend -->
+                        <div class="text-xs space-y-1">
+                            <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>路由问题 (40%)</div>
+                            <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-500 mr-2"></span>VPN问题 (25%)</div>
+                            <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-yellow-500 mr-2"></span>安全策略 (20%)</div>
+                            <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-500 mr-2"></span>硬件故障 (15%)</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 解决率趋势折线图 -->
+                <div class="col-span-3 row-span-1 bg-white rounded-lg shadow-sm p-3 flex flex-col">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-semibold text-gray-800">解决率趋势</h3>
+                        <!-- 视图切换按钮组 -->
+                        <div class="flex bg-gray-100 rounded-md p-0.5 text-sm">
+                            <button @click="chartView = 'year'" :class="{'bg-white shadow-sm text-blue-600': chartView === 'year', 'text-gray-600 hover:text-gray-800': chartView !== 'year'}" class="px-3 py-1 rounded-md transition-all">年</button>
+                            <button @click="chartView = 'month'" :class="{'bg-white shadow-sm text-blue-600': chartView === 'month', 'text-gray-600 hover:text-gray-800': chartView !== 'month'}" class="px-3 py-1 rounded-md transition-all">月</button>
+                            <button @click="chartView = 'week'" :class="{'bg-white shadow-sm text-blue-600': chartView === 'week', 'text-gray-600 hover:text-gray-800': chartView !== 'week'}" class="px-3 py-1 rounded-md transition-all">周</button>
+                        </div>
+                    </div>
+                    <!-- 时间周期选择器 -->
+                    <div class="flex items-center mb-3 text-sm">
+                        <!-- 年份选择器 -->
+                        <div x-show="chartView === 'year'" class="flex items-center space-x-2">
+                            <button @click="chartYear = '2023'" class="p-1 px-2 rounded" :class="{'bg-blue-100 text-blue-600': chartYear === '2023', 'hover:bg-gray-100': chartYear !== '2023'}">2023年</button>
+                            <button @click="chartYear = '2024'" class="p-1 px-2 rounded" :class="{'bg-blue-100 text-blue-600': chartYear === '2024', 'hover:bg-gray-100': chartYear !== '2024'}">2024年</button>
+                        </div>
+                        <!-- 月份选择器 -->
+                        <div x-show="chartView === 'month'" class="flex items-center space-x-2">
+                            <button @click="chartMonth = '5'" class="p-1 px-2 rounded" :class="{'bg-blue-100 text-blue-600': chartMonth === '5', 'hover:bg-gray-100': chartMonth !== '5'}">5月</button>
+                            <button @click="chartMonth = '6'" class="p-1 px-2 rounded" :class="{'bg-blue-100 text-blue-600': chartMonth === '6', 'hover:bg-gray-100': chartMonth !== '6'}">6月</button>
+                        </div>
+                        <!-- 周选择器 -->
+                        <div x-show="chartView === 'week'" class="flex items-center space-x-2">
+                            <div class="p-1 px-2 rounded opacity-0">占位元素</div>
+                            <div class="p-1 px-2 rounded opacity-0">占位元素</div>
+                        </div>
+                    </div>
+                    <div class="h-64 flex-grow flex items-center justify-center text-gray-400 text-sm relative">
+                        <!-- 年视图（按月显示） -->
+                        <svg x-show="chartView === 'year'" class="w-full h-full" viewBox="0 0 600 200">
+                            <!-- Y-axis lines and labels -->
+                            <line x1="50" y1="30" x2="550" y2="30" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="15" y="35" font-size="12" fill="#9ca3af">100%</text>
+                            <line x1="50" y1="70" x2="550" y2="70" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="22" y="75" font-size="12" fill="#9ca3af">80%</text>
+                            <line x1="50" y1="110" x2="550" y2="110" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="22" y="115" font-size="12" fill="#9ca3af">60%</text>
+                            <line x1="50" y1="150" x2="550" y2="150" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="22" y="155" font-size="12" fill="#9ca3af">40%</text>
+                            
+                            <!-- 2023年数据 -->
+                            <g x-show="chartYear === '2023'">
+                                <g>
+                                    <!-- Polyline for the trend -->
+                                    <polyline points="70,110 115,105 160,100 205,95 250,100 295,85 340,80 385,82 430,65 470,63 515,58 560,52" fill="none" stroke="#3b82f6" stroke-width="3"/>
+                                    
+                                    <!-- Data points -->
+                                    <circle cx="70" cy="110" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="115" cy="105" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="160" cy="100" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="205" cy="95" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="250" cy="100" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="295" cy="85" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="340" cy="80" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="385" cy="82" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="430" cy="65" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="470" cy="63" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="515" cy="58" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="560" cy="52" r="5" fill="#3b82f6"></circle>
+                                </g>
+                            </g>
+                            
+                            <!-- 2024年数据 -->
+                            <g x-show="chartYear === '2024'">
+                                <g>
+                                    <!-- Polyline for the trend -->
+                                    <polyline points="70,95 115,85 160,88 205,80 250,65 295,58 340,45 385,42 430,48 470,45 515,40 560,38" fill="none" stroke="#3b82f6" stroke-width="3"/>
+                                    
+                                    <!-- Data points -->
+                                    <circle cx="70" cy="95" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="115" cy="85" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="160" cy="88" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="205" cy="80" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="250" cy="65" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="295" cy="58" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="340" cy="45" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="385" cy="42" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="430" cy="48" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="470" cy="45" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="515" cy="40" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="560" cy="38" r="5" fill="#3b82f6"></circle>
+                                </g>
+                            </g>
+
+                            <!-- X-axis labels -->
+                            <text x="70" y="180" font-size="12" fill="#9ca3af">1月</text>
+                            <text x="115" y="180" font-size="12" fill="#9ca3af">2月</text>
+                            <text x="160" y="180" font-size="12" fill="#9ca3af">3月</text>
+                            <text x="205" y="180" font-size="12" fill="#9ca3af">4月</text>
+                            <text x="250" y="180" font-size="12" fill="#9ca3af">5月</text>
+                            <text x="295" y="180" font-size="12" fill="#9ca3af">6月</text>
+                            <text x="340" y="180" font-size="12" fill="#9ca3af">7月</text>
+                            <text x="385" y="180" font-size="12" fill="#9ca3af">8月</text>
+                            <text x="430" y="180" font-size="12" fill="#9ca3af">9月</text>
+                            <text x="470" y="180" font-size="12" fill="#9ca3af">10月</text>
+                            <text x="515" y="180" font-size="12" fill="#9ca3af">11月</text>
+                            <text x="560" y="180" font-size="12" fill="#9ca3af">12月</text>
+                        </svg>
+                        
+                        <!-- 月视图（按日显示） -->
+                        <svg x-show="chartView === 'month'" class="w-full h-full" viewBox="0 0 600 200">
+                            <!-- Y-axis lines and labels -->
+                            <line x1="50" y1="30" x2="550" y2="30" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="15" y="35" font-size="12" fill="#9ca3af">100%</text>
+                            <line x1="50" y1="70" x2="550" y2="70" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="22" y="75" font-size="12" fill="#9ca3af">80%</text>
+                            <line x1="50" y1="110" x2="550" y2="110" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="22" y="115" font-size="12" fill="#9ca3af">60%</text>
+                            <line x1="50" y1="150" x2="550" y2="150" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="22" y="155" font-size="12" fill="#9ca3af">40%</text>
+                            
+                            <!-- 5月数据 -->
+                            <g x-show="chartMonth === '5'">
+                                <g>
+                                    <!-- Polyline for the trend -->
+                                    <polyline points="100,85 183,78 266,70 350,82 433,58 516,52" fill="none" stroke="#3b82f6" stroke-width="3"/>
+                                    
+                                    <!-- Data points -->
+                                    <circle cx="100" cy="85" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="183" cy="78" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="266" cy="70" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="350" cy="82" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="433" cy="58" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="516" cy="52" r="5" fill="#3b82f6"></circle>
+                                </g>
+                            </g>
+                            
+                            <!-- 6月数据 -->
+                            <g x-show="chartMonth === '6'">
+                                <g>
+                                    <!-- Polyline for the trend -->
+                                    <polyline points="100,78 183,65 266,62 350,70 433,58 516,48" fill="none" stroke="#3b82f6" stroke-width="3"/>
+                                    
+                                    <!-- Data points -->
+                                    <circle cx="100" cy="78" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="183" cy="65" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="266" cy="62" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="350" cy="70" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="433" cy="58" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="516" cy="48" r="5" fill="#3b82f6"></circle>
+                                </g>
+                            </g>
+
+                            <!-- X-axis labels -->
+                            <text x="95" y="180" font-size="14" fill="#9ca3af">1日</text>
+                            <text x="178" y="180" font-size="14" fill="#9ca3af">5日</text>
+                            <text x="261" y="180" font-size="14" fill="#9ca3af">10日</text>
+                            <text x="345" y="180" font-size="14" fill="#9ca3af">15日</text>
+                            <text x="428" y="180" font-size="14" fill="#9ca3af">20日</text>
+                            <text x="511" y="180" font-size="14" fill="#9ca3af">25日</text>
+                        </svg>
+                        
+                        <!-- 周视图（周日到周六） -->
+                        <svg x-show="chartView === 'week'" class="w-full h-full" viewBox="0 0 600 200">
+                            <!-- Y-axis lines and labels -->
+                            <line x1="50" y1="30" x2="550" y2="30" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="15" y="35" font-size="12" fill="#9ca3af">100%</text>
+                            <line x1="50" y1="70" x2="550" y2="70" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="22" y="75" font-size="12" fill="#9ca3af">80%</text>
+                            <line x1="50" y1="110" x2="550" y2="110" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="22" y="115" font-size="12" fill="#9ca3af">60%</text>
+                            <line x1="50" y1="150" x2="550" y2="150" stroke="#e5e7eb" stroke-dasharray="2,2"></line>
+                            <text x="22" y="155" font-size="12" fill="#9ca3af">40%</text>
+                            
+                            <!-- 第22周数据 -->
+                            <g x-show="chartWeek === '22'">
+                                <g>
+                                    <!-- Polyline for the trend -->
+                                    <polyline points="90,78 160,95 230,85 300,82 370,72 440,58 510,52" fill="none" stroke="#3b82f6" stroke-width="3"/>
+                                    
+                                    <!-- Data points -->
+                                    <circle cx="90" cy="78" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="160" cy="95" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="230" cy="85" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="300" cy="82" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="370" cy="72" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="440" cy="58" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="510" cy="52" r="5" fill="#3b82f6"></circle>
+                                </g>
+                            </g>
+                            
+                            <!-- 第23周数据 -->
+                            <g x-show="chartWeek === '23'">
+                                <g>
+                                    <!-- Polyline for the trend -->
+                                    <polyline points="90,72 160,85 230,78 300,65 370,62 440,52 510,45" fill="none" stroke="#3b82f6" stroke-width="3"/>
+                                    
+                                    <!-- Data points -->
+                                    <circle cx="90" cy="72" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="160" cy="85" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="230" cy="78" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="300" cy="65" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="370" cy="62" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="440" cy="52" r="5" fill="#3b82f6"></circle>
+                                    <circle cx="510" cy="45" r="5" fill="#3b82f6"></circle>
+                                </g>
+                            </g>
+
+                            <!-- X-axis labels (周日到周六) -->
+                            <!-- 日期标签 -->
+                            <text x="80" y="165" font-size="12" fill="#9ca3af" text-anchor="middle">28</text>
+                            <text x="150" y="165" font-size="12" fill="#9ca3af" text-anchor="middle">29</text>
+                            <text x="220" y="165" font-size="12" fill="#9ca3af" text-anchor="middle">30</text>
+                            <text x="290" y="165" font-size="12" fill="#9ca3af" text-anchor="middle">31</text>
+                            <text x="360" y="165" font-size="12" fill="#9ca3af" text-anchor="middle">1</text>
+                            <text x="430" y="165" font-size="12" fill="#9ca3af" text-anchor="middle">2</text>
+                            <text x="500" y="165" font-size="12" fill="#9ca3af" text-anchor="middle">3</text>
+                            <!-- 星期标签 -->
+                            <text x="80" y="180" font-size="14" fill="#9ca3af" text-anchor="middle">周日</text>
+                            <text x="150" y="180" font-size="14" fill="#9ca3af" text-anchor="middle">周一</text>
+                            <text x="220" y="180" font-size="14" fill="#9ca3af" text-anchor="middle">周二</text>
+                            <text x="290" y="180" font-size="14" fill="#9ca3af" text-anchor="middle">周三</text>
+                            <text x="360" y="180" font-size="14" fill="#9ca3af" text-anchor="middle">周四</text>
+                            <text x="430" y="180" font-size="14" fill="#9ca3af" text-anchor="middle">周五</text>
+                            <text x="500" y="180" font-size="14" fill="#9ca3af" text-anchor="middle">周六</text>
+                        </svg>
+                    </div>
+                </div>
+                <!-- 知识覆盖度热力图 -->
+                <div class="col-span-4 row-span-1 bg-white rounded-lg shadow-sm p-3 flex flex-col">
+                    <h3 class="font-semibold text-gray-800 mb-2">知识覆盖度</h3>
+                    <div class="flex-grow flex flex-col items-center justify-center">
+                        <!-- 热力图部分 -->
+                        <div class="grid grid-cols-6 gap-1 w-full max-w-2xl">
+                            <!-- Header -->
+                            <div class="col-start-2 text-center text-xs font-medium text-gray-500">OSPF</div>
+                            <div class="text-center text-xs font-medium text-gray-500">BGP</div>
+                            <div class="text-center text-xs font-medium text-gray-500">MPLS</div>
+                            <div class="text-center text-xs font-medium text-gray-500">IPsec</div>
+                            <div class="text-center text-xs font-medium text-gray-500">QoS</div>
+
+                            <!-- Row 1: Huawei -->
+                            <div class="text-right text-xs font-medium text-gray-500 pr-2">华为</div>
+                            <div class="bg-blue-200 h-8 w-full rounded-sm" title="Coverage: 40%"></div>
+                            <div class="bg-blue-500 h-8 w-full rounded-sm" title="Coverage: 80%"></div>
+                            <div class="bg-blue-400 h-8 w-full rounded-sm" title="Coverage: 70%"></div>
+                            <div class="bg-blue-600 h-8 w-full rounded-sm" title="Coverage: 90%"></div>
+                            <div class="bg-blue-300 h-8 w-full rounded-sm" title="Coverage: 55%"></div>
+
+                            <!-- Row 2: Cisco -->
+                            <div class="text-right text-xs font-medium text-gray-500 pr-2">思科</div>
+                            <div class="bg-blue-600 h-8 w-full rounded-sm" title="Coverage: 95%"></div>
+                            <div class="bg-blue-500 h-8 w-full rounded-sm" title="Coverage: 85%"></div>
+                            <div class="bg-blue-500 h-8 w-full rounded-sm" title="Coverage: 80%"></div>
+                            <div class="bg-blue-400 h-8 w-full rounded-sm" title="Coverage: 70%"></div>
+                            <div class="bg-blue-200 h-8 w-full rounded-sm" title="Coverage: 45%"></div>
+
+                            <!-- Row 3: Juniper -->
+                            <div class="text-right text-xs font-medium text-gray-500 pr-2">Juniper</div>
+                            <div class="bg-blue-400 h-8 w-full rounded-sm" title="Coverage: 65%"></div>
+                            <div class="bg-blue-300 h-8 w-full rounded-sm" title="Coverage: 50%"></div>
+                            <div class="bg-blue-200 h-8 w-full rounded-sm" title="Coverage: 30%"></div>
+                            <div class="bg-blue-300 h-8 w-full rounded-sm" title="Coverage: 55%"></div>
+                            <div class="bg-blue-100 h-8 w-full rounded-sm" title="Coverage: 20%"></div>
+                        </div>
+                        
+                        <!-- 图例 -->
+                        <div class="flex justify-center mt-4 space-x-6 w-full max-w-2xl">
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 bg-blue-600 rounded-sm mr-1"></div>
+                                <span class="text-xs text-gray-600">高覆盖 (80-100%)</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 bg-blue-400 rounded-sm mr-1"></div>
+                                <span class="text-xs text-gray-600">中覆盖 (50-79%)</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 bg-blue-200 rounded-sm mr-1"></div>
+                                <span class="text-xs text-gray-600">低覆盖 (0-49%)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 诊断路径图 -->
+            <div x-show="mainView === 'diagPath'" x-transition style="display: none;" class="flex-1 bg-white rounded-lg shadow-inner p-4 flex flex-col">
+                <template x-if="selectedHistory && selectedHistory.graph">
+                    <div class="flex-1 relative">
+                        <!-- Edges -->
+                        <svg class="absolute top-0 left-0 w-full h-full" width="100%" height="100%">
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" class="fill-current text-gray-300" />
+                                </marker>
+                            </defs>
+                            <line x1="18%" y1="50%" x2="33%" y2="25%" stroke="#e2e8f0" stroke-width="2" marker-end="url(#arrowhead)"></line>
+                            <line x1="33%" y1="25%" x2="33%" y2="50%" stroke="#e2e8f0" stroke-width="2" marker-end="url(#arrowhead)"></line>
+                            <line x1="43%" y1="50%" x2="66%" y2="50%" stroke="#e2e8f0" stroke-width="2" marker-end="url(#arrowhead)"></line>
+                        </svg>
+                        <!-- Nodes -->
+                        <template x-for="node in selectedHistory.graph.nodes" :key="node.id">
+                            <div @click="selectNode(node.id)" 
+                                :class="[node.position, { 'ring-2 ring-blue-500 shadow-xl': selectedHistory.graph.activeNodeId === node.id }]"
+                                class="absolute p-3 rounded-lg shadow-md cursor-pointer bg-white hover:shadow-lg transition-all transform hover:-translate-y-1">
+                                <p class="font-semibold text-sm" x-text="node.label"></p>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="!selectedHistory || !selectedHistory.graph">
+                     <div class="flex-1 flex items-center justify-center text-gray-500">
+                        <p>该诊断无可视化路径图</p>
+                    </div>
+                </template>
+            </div>
+            <!-- 系统设置 -->
+            <div x-show="mainView === 'settings'" x-transition style="display: none;" class="bg-white rounded-lg shadow-inner p-8 overflow-y-auto">
+                <h2 class="text-2xl font-semibold text-gray-900 border-b pb-4 mb-8">系统设置</h2>
+                <div class="max-w-2xl mx-auto divide-y divide-gray-200">
+                    <!-- Section 1: Appearance -->
+                    <section class="py-8">
+                        <h3 class="text-lg font-medium leading-6 text-gray-900">外观</h3>
+                        <p class="mt-1 text-sm text-gray-500">自定义系统的外观。</p>
+                        <div class="mt-6">
+                            <div class="flex items-center justify-between">
+                                <span class="font-medium text-gray-700">主题</span>
+                                <select x-model="darkMode" class="border-gray-300 rounded-md p-1 px-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="system">跟随系统</option>
+                                    <option value="light">浅色模式</option>
+                                    <option value="dark">深色模式</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+            
+                    <!-- Section 2: Notifications -->
+                    <section class="py-8">
+                         <h3 class="text-lg font-medium leading-6 text-gray-900">通知</h3>
+                        <p class="mt-1 text-sm text-gray-500">选择您希望如何接收通知。</p>
+                        <fieldset class="mt-6">
+                            <div class="space-y-4">
+                                <div class="relative flex items-start">
+                                    <div class="flex items-center h-5">
+                                        <input id="solution-noti" type="checkbox" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded" checked>
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="solution-noti" class="font-medium text-gray-900">解决方案提醒</label>
+                                        <p class="text-gray-500">当诊断会话生成最终解决方案时，发送应用内通知。</p>
+                                    </div>
+                                </div>
+                                <div class="relative flex items-start">
+                                    <div class="flex items-center h-5">
+                                        <input id="mention-noti" type="checkbox" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="mention-noti" class="font-medium text-gray-900">当被@时</label>
+                                        <p class="text-gray-500">当有其他同事在诊断会话中@您时，发送应用内通知。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </section>
+                    
+                    <!-- Section 3: API Keys -->
+                    <section class="py-8">
+                         <h3 class="text-lg font-medium leading-6 text-gray-900">API密钥管理</h3>
+                        <p class="mt-1 text-sm text-gray-500">管理用于集成第三方服务的API密钥。</p>
+                        <div class="mt-6">
+                            <button class="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                生成新密钥
+                            </button>
+                        </div>
+                    </section>
+            
+                    <!-- Save Button -->
+                    <div class="pt-8 flex justify-end">
+                        <button class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            保存更改
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- 账号设置 -->
+            <div x-show="mainView === 'accountSettings'" x-transition style="display: none;" class="bg-white rounded-lg shadow-inner p-8 overflow-y-auto">
+                <h2 class="text-2xl font-semibold text-gray-900 border-b pb-4 mb-8">账号设置</h2>
+                <div class="max-w-2xl mx-auto divide-y divide-gray-200">
+                    <!-- Section 1: Profile -->
+                    <section class="py-8">
+                        <h3 class="text-lg font-medium leading-6 text-gray-900">个人资料</h3>
+                        <p class="mt-1 text-sm text-gray-500">此信息将公开显示，请注意保护个人隐私。</p>
+                        <div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                            <div class="sm:col-span-6">
+                                <label for="photo" class="block text-sm font-medium text-gray-700">头像</label>
+                                <div class="mt-1 flex items-center">
+                                    <span class="inline-block h-12 w-12 rounded-full overflow-hidden bg-gray-100">
+                                        <svg class="h-full w-full text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                                        </svg>
+                                    </span>
+                                    <button type="button" class="ml-5 bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        更改
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="sm:col-span-3">
+                                <label for="username" class="block text-sm font-medium text-gray-700">姓名</label>
+                                <input type="text" name="username" id="username" value="李工" readonly class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-100">
+                            </div>
+                             <div class="sm:col-span-3">
+                                <label for="department" class="block text-sm font-medium text-gray-700">部门</label>
+                                <input type="text" name="department" id="department" value="运维部" readonly class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-100">
+                            </div>
+                        </div>
+                    </section>
+            
+                    <!-- Section 2: Security -->
+                    <section class="py-8">
+                         <h3 class="text-lg font-medium leading-6 text-gray-900">安全</h3>
+                         <div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                             <div class="sm:col-span-4">
+                                <label for="current-password" class="block text-sm font-medium text-gray-700">当前密码</label>
+                                <input type="password" name="current-password" id="current-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            </div>
+                            <div class="sm:col-span-4">
+                                <label for="new-password" class="block text-sm font-medium text-gray-700">新密码</label>
+                                <input type="password" name="new-password" id="new-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            </div>
+                         </div>
+                    </section>
+                    
+                    <!-- Save Button -->
+                    <div class="pt-8 flex justify-end">
+                        <button type="button" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            取消
+                        </button>
+                        <button class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            保存更改
+                        </button>
+                        <button @click="logout()" class="ml-3 inline-flex items-center justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                            <div class="w-4 h-4 mr-1" x-html="HarmonyIcons.logout"></div>
+                            <span>退出登录</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 右侧：上下文详情面板 -->
+        <aside x-show="selectedHistory" 
+               x-transition:enter="transition ease-out duration-200"
+               x-transition:enter-start="opacity-0 transform translate-x-8"
+               x-transition:enter-end="opacity-100 transform translate-x-0"
+               x-transition:leave="transition ease-in duration-150"
+               x-transition:leave-start="opacity-100 transform translate-x-0"
+               x-transition:leave-end="opacity-0 transform translate-x-8"
+               style="display: none;"
+               class="w-96 bg-white p-4 shadow-md flex flex-col overflow-y-auto">
+            <!-- Tab 导航 -->
+            <div class="flex border-b mb-6">
+                <button @click="activeTab = 'details'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'details', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'details' }" class="flex-1 py-3 px-1 text-center border-b-2 font-medium text-sm focus:outline-none" :disabled="!selectedHistory">
+                    <div class="flex items-center justify-center">
+                        <div class="w-4 h-4 mr-1" x-html="HarmonyIcons.node"></div>
+                        <span>节点详情</span>
+                    </div>
+                </button>
+                <button @click="activeTab = 'trace'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'trace', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'trace' }" class="flex-1 py-3 px-1 text-center border-b-2 font-medium text-sm focus:outline-none" :disabled="!selectedHistory">
+                    <div class="flex items-center justify-center">
+                        <div class="w-4 h-4 mr-1" x-html="HarmonyIcons.base"></div>
+                        <span>知识溯源</span>
+                    </div>
+                </button>
+                <button @click="activeTab = 'commands'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'commands', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'commands' }" class="flex-1 py-3 px-1 text-center border-b-2 font-medium text-sm focus:outline-none" :disabled="!selectedHistory">
+                    <div class="flex items-center justify-center">
+                        <div class="w-4 h-4 mr-1" x-html="HarmonyIcons.cut"></div>
+                        <span>可复制命令</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Tab 内容 -->
+            <div class="flex-1 overflow-y-auto">
+                <!-- 提示信息 -->
+                <div x-show="!selectedHistory" class="flex items-center justify-center h-full text-gray-500">
+                    <p>请选择一个诊断会话以查看详情</p>
+                </div>
+
+                <div x-show="selectedHistory">
+                    <!-- 节点详情 -->
+                    <div x-show="activeTab === 'details' && activeNode" class="space-y-6">
+                        <div>
+                            <h4 class="font-semibold mb-3 text-gray-800" x-text="activeNode.label"></h4>
+                            <p class="text-sm text-gray-600 leading-relaxed" x-text="activeNode.details"></p>
+                        </div>
+
+                        <!-- 动态输入区域 -->
+                        <div x-show="activeNode.needsInput" class="border-t pt-6">
+                            <h4 class="font-semibold mb-3 text-gray-800">补充信息</h4>
+                            <textarea class="w-full border rounded-md p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" rows="3" placeholder="请在此处输入补充信息..."></textarea>
+                             <button class="mt-3 w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">提交</button>
+                        </div>
+                        
+                        <!-- 动态反馈区域 -->
+                        <div x-show="activeNode.needsFeedback" class="border-t pt-6 space-y-3">
+                             <h4 class="font-semibold mb-3 text-gray-800">该方案是否解决了您的问题？</h4>
+                             <div class="flex space-x-3">
+                                <button class="flex-1 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">👍 已解决</button>
+                                <button class="flex-1 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">👎 未解决</button>
+                             </div>
+                        </div>
+                    </div>
+                    <!-- 原始信息Fallback -->
+                     <div x-show="activeTab === 'details' && !activeNode" class="space-y-6">
+                        <div>
+                            <h4 class="font-semibold mb-3 text-gray-800">高亮日志</h4>
+                            <pre class="bg-gray-100 p-3 rounded-md text-xs overflow-x-auto"><code x-text="selectedHistory?.logSnippet || '暂无日志信息'"></code></pre>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold mb-3 text-gray-800">附件预览</h4>
+                            <div class="border rounded-md p-3 space-y-2">
+                                <template x-if="selectedHistory?.attachments.length > 0">
+                                    <template x-for="file in selectedHistory.attachments" :key="file.name">
+                                        <div class="text-sm text-gray-600 flex items-center p-1">
+                                            <div class="h-4 w-4 mr-2 text-gray-400" x-html="HarmonyIcons.file"></div>
+                                            <span x-text="file.name"></span>
+                                        </div>
+                                    </template>
+                                </template>
+                                <template x-if="!selectedHistory?.attachments.length">
+                                    <p class="text-sm text-gray-400">无附件</p>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 知识溯源 -->
+                    <div x-show="activeTab === 'trace'" class="space-y-6">
+                        <!-- 添加相关性权重控制器 -->
+                        <div class="mb-5 bg-gray-50 rounded-lg p-4">
+                            <h4 class="font-medium text-sm text-gray-700 mb-3">相关性权重:</h4>
+                            <div class="flex bg-white rounded-md shadow-sm overflow-hidden border border-gray-200">
+                                <button @click="weightMode = 'keyword'" 
+                                        :class="{'bg-blue-100 text-blue-600': weightMode === 'keyword', 'hover:bg-blue-50': weightMode !== 'keyword'}" 
+                                        class="flex-1 py-2 text-xs font-medium transition-colors border-r border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500">关键词优先</button>
+                                <button @click="weightMode = 'balanced'" 
+                                        :class="{'bg-blue-100 text-blue-600': weightMode === 'balanced', 'hover:bg-blue-50': weightMode !== 'balanced'}" 
+                                        class="flex-1 py-2 text-xs font-medium transition-colors border-r border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500">平衡</button>
+                                <button @click="weightMode = 'semantic'" 
+                                        :class="{'bg-blue-100 text-blue-600': weightMode === 'semantic', 'hover:bg-blue-50': weightMode !== 'semantic'}" 
+                                        class="flex-1 py-2 text-xs font-medium transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500">语义优先</button>
+                            </div>
+                        </div>
+                        
+                        <template x-if="selectedHistory?.knowledgeHits.length > 0">
+                             <template x-for="hit in selectedHistory.knowledgeHits" :key="hit.text">
+                                <div class="bg-white rounded-lg shadow-sm mb-4">
+                                    <p class="text-sm bg-yellow-50 p-4 rounded-t-lg border-b border-yellow-100" x-text="hit.text"></p>
+                                    <div class="flex items-center justify-between p-3 text-xs">
+                                        <span class="font-medium">相似度: <span class="text-blue-600" x-text="hit.score"></span></span>
+                                        <a href="#" class="text-blue-500 hover:underline hover:text-blue-700 transition-colors">跳转原文</a>
+                                    </div>
+                                </div>
+                            </template>
+                        </template>
+                        <template x-if="!selectedHistory?.knowledgeHits.length">
+                            <div class="flex flex-col items-center justify-center p-8 text-gray-400">
+                                <div class="h-12 w-12 mb-3 text-gray-400" x-html="HarmonyIcons.code"></div>
+                                <p class="text-sm">暂无知识溯源结果</p>
+                            </div>
+                        </template>
+                    </div>
+                    <!-- 可复制命令 -->
+                    <div x-show="activeTab === 'commands'" class="space-y-4">
+                        <div class="text-sm">
+                            <div class="flex border-b">
+                                <button @click="vendorTab = 'huawei'" :class="{'bg-gray-200 text-gray-800': vendorTab === 'huawei', 'bg-white text-gray-500': vendorTab !== 'huawei'}" class="px-3 py-1 rounded-t-md focus:outline-none font-medium">华为</button>
+                                <button @click="vendorTab = 'cisco'" :class="{'bg-gray-200 text-gray-800': vendorTab === 'cisco', 'bg-white text-gray-500': vendorTab !== 'cisco'}" class="px-3 py-1 rounded-t-md focus:outline-none font-medium">思科</button>
+                                <button @click="vendorTab = 'juniper'" :class="{'bg-gray-200 text-gray-800': vendorTab === 'juniper', 'bg-white text-gray-500': vendorTab !== 'juniper'}" class="px-3 py-1 rounded-t-md focus:outline-none font-medium">Juniper</button>
+                            </div>
+                            <div class="bg-gray-100 p-4 rounded-b-md rounded-tr-md">
+                                <pre x-show="vendorTab === 'huawei'"><code>display interface brief</code></pre>
+                                <pre x-show="vendorTab === 'cisco'"><code>show ip interface brief</code></pre>
+                                <pre x-show="vendorTab === 'juniper'"><code>show interfaces terse</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 发起新诊断 Modal -->
+        <div x-show="isModalOpen" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+             style="display: none;"
+             @click.self="isModalOpen = false">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg" @click.stop>
+                <!-- Modal Header -->
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h3 class="text-lg font-semibold">发起新诊断</h3>
+                    <button @click="isModalOpen = false" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                </div>
+                <!-- Modal Body -->
+                <div class="space-y-4">
+                    <div>
+                        <label for="diag-title" class="block text-sm font-medium text-gray-700 mb-1">问题标题</label>
+                        <input type="text" id="diag-title" x-model="newDiagnosis.title" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2" placeholder="例如：核心交换机A-B链路丢包">
+                    </div>
+                    <div>
+                        <label for="diag-desc" class="block text-sm font-medium text-gray-700 mb-1">详细描述</label>
+                        <textarea id="diag-desc" x-model="newDiagnosis.description" rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2" placeholder="请详细描述问题现象、相关日志、配置等信息..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">上传附件</label>
+                        <div class="mt-1 flex flex-col items-center justify-center px-6 py-10 border-2 border-gray-300 border-dashed rounded-md cursor-pointer hover:border-blue-400">
+                            <div class="flex flex-col items-center justify-center space-y-4">
+                                <div class="h-20 w-20 text-gray-400 flex items-center justify-center" x-html="HarmonyIcons.file"></div>
+                                <div class="text-center">
+                                    <p class="text-sm text-gray-600">
+                                        <span class="font-medium text-blue-600 hover:text-blue-500">点击上传</span> 或拖拽文件至此
+                                    </p>
+                                    <p class="text-xs text-gray-500 mt-1">支持图片、拓扑、日志压缩包</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Modal Footer -->
+                <div class="flex justify-end items-center mt-6 pt-4 border-t">
+                    <button @click="isModalOpen = false" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">取消</button>
+                    <button @click="startNewDiagnosis()" class="px-4 py-2 ml-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">开始诊断</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 过滤条件模态框 -->
+        <div x-show="isFilterModalOpen" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+             style="display: none;"
+             @click.self="isFilterModalOpen = false">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg" @click.stop>
+                <!-- Modal Header -->
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h3 class="text-lg font-semibold">过滤条件</h3>
+                    <button @click="isFilterModalOpen = false" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                </div>
+                <!-- Modal Body -->
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">按设备：</h4>
+                        <div class="flex flex-wrap gap-2">
+                            <button @click="activeFilters.device = 'all'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.device === 'all', 'bg-gray-200 text-gray-800': activeFilters.device !== 'all'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">全部</button>
+                            <button @click="activeFilters.device = 'huawei'" 
+                                   :class="{'bg-blue-500 text-white': activeFilters.device === 'huawei', 'bg-gray-200 text-gray-800': activeFilters.device !== 'huawei'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">华为</button>
+                            <button @click="activeFilters.device = 'cisco'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.device === 'cisco', 'bg-gray-200 text-gray-800': activeFilters.device !== 'cisco'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">思科</button>
+                            <button @click="activeFilters.device = 'juniper'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.device === 'juniper', 'bg-gray-200 text-gray-800': activeFilters.device !== 'juniper'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">Juniper</button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">按问题：</h4>
+                        <div class="flex flex-wrap gap-2">
+                            <button @click="activeFilters.problem = 'all'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.problem === 'all', 'bg-gray-200 text-gray-800': activeFilters.problem !== 'all'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">全部</button>
+                            <button @click="activeFilters.problem = 'route'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.problem === 'route', 'bg-gray-200 text-gray-800': activeFilters.problem !== 'route'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">路由问题</button>
+                            <button @click="activeFilters.problem = 'vpn'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.problem === 'vpn', 'bg-gray-200 text-gray-800': activeFilters.problem !== 'vpn'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">VPN隧道</button>
+                            <button @click="activeFilters.problem = 'high'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.problem === 'high', 'bg-gray-200 text-gray-800': activeFilters.problem !== 'high'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">高危</button>
+                            <button @click="activeFilters.problem = 'config'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.problem === 'config', 'bg-gray-200 text-gray-800': activeFilters.problem !== 'config'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">配置错误</button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">按附件类型：</h4>
+                        <div class="flex flex-wrap gap-2">
+                            <button @click="activeFilters.attachment = 'all'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.attachment === 'all', 'bg-gray-200 text-gray-800': activeFilters.attachment !== 'all'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">全部</button>
+                            <button @click="activeFilters.attachment = 'topo'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.attachment === 'topo', 'bg-gray-200 text-gray-800': activeFilters.attachment !== 'topo'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">拓扑图</button>
+                            <button @click="activeFilters.attachment = 'log'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.attachment === 'log', 'bg-gray-200 text-gray-800': activeFilters.attachment !== 'log'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">日志文件</button>
+                            <button @click="activeFilters.attachment = 'config'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.attachment === 'config', 'bg-gray-200 text-gray-800': activeFilters.attachment !== 'config'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">配置文件</button>
+                            <button @click="activeFilters.attachment = 'none'"
+                                   :class="{'bg-blue-500 text-white': activeFilters.attachment === 'none', 'bg-gray-200 text-gray-800': activeFilters.attachment !== 'none'}"
+                                   class="px-3 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors">无附件</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Modal Footer -->
+                <div class="flex justify-end items-center mt-6 pt-4 border-t">
+                    <button @click="isFilterModalOpen = false" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">取消</button>
+                    <button @click="isFilterModalOpen = false" class="px-4 py-2 ml-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">应用过滤</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 诊断历史右键菜单 -->
+        <div x-show="contextMenu.visible" @click.away="contextMenu.visible = false" :style="'left:' + contextMenu.x + 'px; top:' + contextMenu.y + 'px'" class="fixed bg-white shadow-lg rounded-md text-sm z-50">
+        <button @click="renameHistory(contextMenu.item)" class="flex items-center justify-between w-full px-4 py-2 hover:bg-gray-100 text-left">
+            <span>重命名</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ml-3" viewBox="0 0 24 24"><rect width="24" height="24" opacity="0"></rect><g><path d="M4.8 18.02Q4.27 18.02 3.89 17.64Q3.5 17.26 3.5 16.7L3.5 7.32Q3.5 6.77 3.89 6.4Q4.27 6.02 4.8 6.02L9.96 6.02L9.96 4.51L4.8 4.51Q4.06 4.51 3.41 4.9Q2.76 5.28 2.38 5.93Q1.99 6.58 1.99 7.32L1.99 16.7Q1.99 17.47 2.38 18.12Q2.76 18.77 3.4 19.14Q4.03 19.51 4.8 19.51L9.96 19.51L9.96 18.02L4.8 18.02ZM14.04 4.51L14.04 6.02L19.2 6.02Q19.75 6.02 20.12 6.4Q20.5 6.77 20.5 7.32L20.5 16.7Q20.5 17.26 20.11 17.64Q19.73 18.02 19.2 18.02L14.04 18.02L14.04 19.51L19.2 19.51Q19.97 19.51 20.6 19.14Q21.24 18.77 21.62 18.12Q22.01 17.47 22.01 16.7L22.01 7.32Q22.01 6.58 21.62 5.93Q21.24 5.28 20.59 4.9Q19.94 4.51 19.2 4.51ZM12.74 20.71L12.74 3.29L13.51 3.29Q13.82 3.29 14.04 3.07Q14.26 2.86 14.26 2.54Q14.26 2.23 14.04 2.02Q13.82 1.8 13.51 1.8L10.49 1.8Q10.18 1.8 9.95 2.02Q9.72 2.23 9.72 2.54Q9.72 2.86 9.95 3.07Q10.18 3.29 10.49 3.29L11.26 3.29L11.26 20.71L10.49 20.71Q10.18 20.71 9.95 20.93Q9.72 21.14 9.72 21.46Q9.72 21.77 9.95 21.98Q10.18 22.2 10.49 22.2L12 22.2L13.51 22.2Q13.82 22.2 14.04 21.98Q14.26 21.77 14.26 21.46Q14.26 21.14 14.04 20.93Q13.82 20.71 13.51 20.71Z" fill="rgba(0,0,0,0.6)"></path></g></svg>
+        </button>
+        <button @click="toggleTag(contextMenu.item, '重要')" class="flex items-center justify-between w-full px-4 py-2 hover:bg-gray-100 text-left">
+            <span>标签设置</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ml-3" viewBox="0 0 24 24"><rect width="24" height="24" opacity="0"></rect><g><path d="M21.84 10.27Q22.25 9.58 22.22 8.81Q22.2 8.04 21.74 7.37L18.62 2.69Q18.29 2.21 17.81 1.92Q17.33 1.63 16.8 1.61L11.16 1.25Q10.34 1.2 9.66 1.55Q8.98 1.9 8.57 2.57L2.16 13.7Q1.78 14.38 1.8 15.11Q1.82 15.84 2.2 16.48Q2.57 17.11 3.17 17.45L11.66 22.37Q12.31 22.75 13.04 22.75Q13.78 22.75 14.41 22.38Q15.05 22.01 15.43 21.36L21.84 10.27ZM16.7 3.1Q17.11 3.14 17.38 3.5L20.5 8.21Q20.66 8.47 20.69 8.78Q20.71 9.1 20.57 9.41Q20.57 9.43 20.52 9.53L14.14 20.62Q13.87 21.07 13.38 21.2Q12.89 21.34 12.41 21.07L3.91 16.18Q3.46 15.91 3.32 15.42Q3.19 14.93 3.46 14.47L9.89 3.34L9.94 3.26Q10.1 3.02 10.37 2.89Q10.63 2.76 10.97 2.76L16.7 3.1ZM14.11 11.21Q14.9 11.21 15.56 10.81Q16.22 10.42 16.62 9.76Q17.02 9.1 17.02 8.3Q17.02 7.51 16.63 6.84Q16.25 6.17 15.58 5.78Q14.9 5.4 14.11 5.4Q13.34 5.4 12.67 5.8Q12 6.19 11.62 6.85Q11.23 7.51 11.23 8.3Q11.23 9.07 11.62 9.74Q12 10.42 12.67 10.81Q13.34 11.21 14.11 11.21ZM14.11 6.91Q14.69 6.91 15.11 7.32Q15.53 7.73 15.53 8.3Q15.53 8.88 15.11 9.29Q14.69 9.7 14.11 9.7Q13.54 9.7 13.13 9.29Q12.72 8.88 12.72 8.3Q12.72 7.73 13.13 7.32Q13.54 6.91 14.11 6.91Z" fill="rgba(0,0,0,0.6)"></path></g></svg>
+        </button>
+        <button @click="deleteHistory(contextMenu.item)" class="flex items-center justify-between w-full px-4 py-2 hover:bg-gray-100 text-left">
+            <span>删除</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ml-3" viewBox="0 0 24 24"><rect width="24" height="24" opacity="0"></rect><g><path d="M9.1 6.05Q9.41 6.05 9.62 5.83Q9.84 5.62 9.84 5.3Q9.84 4.39 10.5 3.72Q11.16 3.05 12.1 3.05Q13.03 3.05 13.69 3.72Q14.35 4.39 14.35 5.3Q14.35 5.62 14.57 5.83Q14.78 6.05 15.1 6.05L20.54 6.05Q20.86 6.05 21.07 5.83Q21.29 5.62 21.29 5.3Q21.29 4.99 21.07 4.78Q20.86 4.56 20.54 4.56L15.77 4.56Q15.5 3.26 14.47 2.41Q13.44 1.56 12.07 1.56Q10.73 1.56 9.7 2.41Q8.66 3.26 8.4 4.56L3.43 4.56Q3.12 4.56 2.9 4.78Q2.69 4.99 2.69 5.3Q2.69 5.62 2.9 5.83Q3.12 6.05 3.43 6.05L9.1 6.05ZM13.75 17.88Q14.06 17.88 14.28 17.68Q14.5 17.47 14.52 17.16L14.76 10.15Q14.78 9.84 14.56 9.61Q14.33 9.38 14.02 9.36Q13.7 9.36 13.49 9.56Q13.27 9.77 13.27 10.08L13.01 17.09Q12.98 17.4 13.21 17.63Q13.44 17.86 13.75 17.88ZM10.27 17.88Q10.58 17.86 10.81 17.63Q11.04 17.4 11.02 17.09L10.73 10.08Q10.73 9.77 10.51 9.56Q10.3 9.36 9.96 9.36Q9.65 9.38 9.43 9.61Q9.22 9.84 9.24 10.15L9.5 17.16Q9.53 17.45 9.74 17.66Q9.96 17.88 10.27 17.88ZM17.21 19.8Q17.16 20.28 16.8 20.6Q16.44 20.93 15.96 20.93L8.04 20.93Q7.54 20.93 7.19 20.6Q6.84 20.28 6.79 19.8L5.81 7.22L4.32 7.22L5.3 19.92Q5.4 21 6.18 21.72Q6.96 22.44 8.04 22.44L15.96 22.44Q17.04 22.44 17.81 21.72Q18.58 21 18.7 19.92L19.66 7.22L18.17 7.22L17.21 19.8Z" fill="rgba(232,64,38,1)"></path></g></svg>
+        </button>
+    </div>
+    </div>
+</body>
+</html> 
