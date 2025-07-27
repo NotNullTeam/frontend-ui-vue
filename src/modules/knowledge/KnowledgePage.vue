@@ -1,21 +1,11 @@
 <template>
   <a-layout class="h-screen">
-    <a-layout-sider width="260">
-      <ChatSidebar />
-    </a-layout-sider>
-    <a-layout>
-      <a-layout-content class="p-4">
-        <KnowledgeTable />
-      </a-layout-content>
-    </a-layout>
-    <a-layout-sider width="300" theme="light">
-      <ContextTabs />
-    </a-layout-sider>
+    <a-layout-content class="p-4">
+      <KnowledgeTable />
+    </a-layout-content>
   </a-layout>
 </template>
 
 <script setup lang="ts">
-import ChatSidebar from '@/components/ChatSidebar.vue';
 import KnowledgeTable from '@/components/KnowledgeTable.vue';
-import ContextTabs from '@/components/ContextTabs.vue';
 </script>

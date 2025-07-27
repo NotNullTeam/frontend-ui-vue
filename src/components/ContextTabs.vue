@@ -50,6 +50,20 @@ function statusColor(s: string) {
 }
 
 function reparse(id: string) {
-  knowledge.update(id, { status: 'PARSING', progress: 50, logs: '重新解析中...' });
+  knowledge.update(id, { status: 'PARSING', progress: 0, logs: '重新解析中...' });
+  let currentProgress = 0;
+  const interval = setInterval(() => {
+    currentProgress += 10;
+    if (currentProgress <= 90) {
+      knowledge.update(id, { progress: currentProgress });
+    } else {
+      clearInterval(interval);
+      if (Math.random() > 0.2) { // 80% success rate
+        knowledge.update(id, { status: 'INDEXED', progress: 100, logs: '解析成功' });
+      } else {
+        knowledge.update(id, { status: 'FAILED', logs: '解析失败' });
+      }
+    }
+  }, 200);
 }
 </script>

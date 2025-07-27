@@ -14,7 +14,7 @@ export default defineConfig({
       dts: 'src/auto-imports.d.ts'
     }),
     Components({
-      resolvers: [AntDesignVueResolver({ importStyle: false })],
+      resolvers: [AntDesignVueResolver({ importStyle: 'css-in-js', resolveIcons: true })],
       dts: 'src/components.d.ts'
     }),
     viteMockServe({

@@ -83,6 +83,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { message, Modal } from 'ant-design-vue';
+import { UploadOutlined, InboxOutlined } from '@ant-design/icons-vue';
 import { useKnowledgeStore, type DocumentItem } from '@/stores/knowledge';
 
 const store = useKnowledgeStore();
@@ -111,14 +112,34 @@ function startUpload() {
       vendor: uploadVendor.value,
       tags: [...uploadTags.value],
       time: new Date().toLocaleString(),
-      status: 'INDEXED',
-      progress: 100,
+      status: 'UPLOADING',
+      progress: 0,
     };
     store.add(doc);
+
+    // Simulate upload and parsing process
+    let currentProgress = 0;
+    const interval = setInterval(() => {
+      currentProgress += 10;
+      if (currentProgress <= 90) {
+        doc.status = 'PARSING';
+        doc.progress = currentProgress;
+      } else {
+        clearInterval(interval);
+        // Simulate success or failure
+        if (Math.random() > 0.2) { // 80% success rate
+          doc.status = 'INDEXED';
+          doc.progress = 100;
+          message.success(`文档 ${file.name} 上传并解析成功`);
+        } else {
+          doc.status = 'FAILED';
+          message.error(`文档 ${file.name} 上传或解析失败`);
+        }
+      }
+    }, 200);
   });
   fileList.value = [];
   uploadTags.value = [];
-  message.success('上传成功');
 }
 function view(id: string) {
   store.select(id);

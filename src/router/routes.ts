@@ -1,20 +1,24 @@
+import MainLayout from '@/layouts/MainLayout.vue';
+
 export default [
-    { path: '/', redirect: '/prototype' },
+    { path: '/', redirect: '/dashboard' },
     {
-      path: '/chat',
-      component: () => import('@/modules/chat/ChatPage.vue')
-    },
-    {
-      path: '/prototype',
-      component: () => import('@/modules/prototype/PrototypePage.vue')
-    },
-    {
-      path: '/dashboard',
-      component: () => import('@/modules/dashboard/DashboardPage.vue')
-    },
-    {
-      path: '/knowledge',
-      component: () => import('@/modules/knowledge/KnowledgePage.vue')
+      path: '/',
+      component: MainLayout,
+      children: [
+        {
+          path: 'chat',
+          component: () => import('@/modules/chat/ChatPage.vue')
+        },
+        {
+          path: 'dashboard',
+          component: () => import('@/modules/dashboard/DashboardPage.vue')
+        },
+        {
+          path: 'knowledge',
+          component: () => import('@/modules/knowledge/KnowledgePage.vue')
+        },
+      ]
     },
     {
       path: '/settings/system',

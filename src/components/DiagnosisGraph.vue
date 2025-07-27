@@ -30,8 +30,8 @@ function formatNode(n: GraphNode) {
     symbolSize: 50,
     itemStyle: {
       color: colors[n.type] || '#ccc',
-      borderColor: graph.selectedNodeId === n.id ? '#fadb14' : '#fff',
-      borderWidth: graph.selectedNodeId === n.id ? 3 : 1,
+      borderColor: graph.selectedNodeId === n.id ? '#fadb14' : 'transparent',
+      borderWidth: graph.selectedNodeId === n.id ? 3 : 0,
     },
   };
 }

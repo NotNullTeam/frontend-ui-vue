@@ -4,7 +4,6 @@ import { createRouter, createWebHistory } from 'vue-router';
 import routes from '@/router/routes';
 import './style.css'
 import App from './App.vue'
-import 'ant-design-vue/dist/reset.css';
 import VChart from 'vue-echarts';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';

@@ -49,10 +49,20 @@
       class="w-full"
       v-model:selectedKeys="selectedKeys"
     >
-      <a-menu-item key="dashboard" icon="dashboard" @click="router.push('/dashboard')">数据看板</a-menu-item>
-      <a-menu-item key="kb" icon="book" @click="router.push('/knowledge')">知识库</a-menu-item>
-      <a-menu-item key="settings" icon="setting" @click="router.push('/settings/system')">系统设置</a-menu-item>
-      <a-menu-item key="toggle" @click="collapsed = !collapsed" icon="menu-fold">
+      <a-menu-item key="dashboard" @click="router.push('/dashboard')">
+        <template #icon><DashboardOutlined /></template>
+        数据看板
+      </a-menu-item>
+      <a-menu-item key="kb" @click="router.push('/knowledge')">
+        <template #icon><BookOutlined /></template>
+        知识库
+      </a-menu-item>
+      <a-menu-item key="settings" @click="router.push('/settings/system')">
+        <template #icon><SettingOutlined /></template>
+        系统设置
+      </a-menu-item>
+      <a-menu-item key="toggle" @click="collapsed = !collapsed">
+        <template #icon><MenuFoldOutlined /></template>
         {{ collapsed ? '展开' : '折叠' }}
       </a-menu-item>
     </a-menu>
@@ -84,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, h, computed } from 'vue';
+import { ref, watch, h, computed, defineEmits } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
@@ -95,18 +105,18 @@ interface HistoryItem {
   time: string;
 }
 
+const emit = defineEmits<{ (e: 'rename', item: HistoryItem, title: string): void; (e: 'delete', item: HistoryItem): void }>();
 const collapsed = ref(false);
 const showFilter = ref(false);
 const showNew = ref(false);
 const newTitle = ref('');
 const search = ref('');
 const selectedKeys = ref<string[]>([]);
-const history = ref<HistoryItem[]>([
-  { status: 'success', title: '诊断会话 1', time: '2024-01-01' },
-  { status: 'running', title: '诊断会话 2', time: '2024-01-02' },
-]);
+import { useHistoryStore } from '@/stores/history';
+
+const historyStore = useHistoryStore();
 const filtered = computed(() =>
-  history.value.filter((h) => h.title.includes(search.value))
+  historyStore.history.filter((h) => h.title.includes(search.value))
 );
 const router = useRouter();
 const route = useRoute();
@@ -117,24 +127,22 @@ function select(_item: HistoryItem) {
 }
 
 function rename(item: HistoryItem) {
+  let newTitle = item.title;
   Modal.confirm({
     title: '重命名',
     content: () =>
       h('input', {
-        value: item.title,
-        onInput: (e: any) => (item.title = e.target.value),
+        value: newTitle,
+        onInput: (e: any) => (newTitle = e.target.value),
       }),
-    onOk: () => message.success('已重命名'),
+    onOk: () => historyStore.rename(item.id, newTitle),
   });
 }
 
 function del(item: HistoryItem) {
   Modal.confirm({
     title: '确认删除?',
-    onOk: () => {
-      history.value = history.value.filter((h) => h !== item);
-      message.success('已删除');
-    },
+    onOk: () => historyStore.remove(item.id),
   });
 }
 
@@ -144,11 +152,12 @@ function startNew() {
     return;
   }
   const item: HistoryItem = {
+    id: Date.now().toString(),
     status: 'running',
     title: newTitle.value,
     time: new Date().toLocaleString(),
   };
-  history.value.unshift(item);
+  historyStore.add(item);
   newTitle.value = '';
   showNew.value = false;
   select(item);

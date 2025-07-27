@@ -25,10 +25,9 @@ const password = ref('');
 const error = ref('');
 
 function onLogin() {
+  error.value = '';
   if (!user.login(username.value, password.value)) {
     error.value = '用户名或密码错误';
-  } else {
-    error.value = '';
   }
 }
 </script>
